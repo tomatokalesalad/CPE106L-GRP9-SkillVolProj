@@ -1,114 +1,82 @@
 import flet as ft
-import database
-from main_menu import main as main_menu_main
+from matcher import match_request_to_volunteer
+from database import add_request
 
 def main(page: ft.Page):
-    page.title = "Request Help"
-    page.theme = ft.Theme(
-    color_scheme=ft.ColorScheme(
-        primary="#4682b4",
-        secondary="#006994",
-    )
-)
+    def go_back(e):
+        import main_menu
+        main_menu.main(page)
 
-    page.scroll = ft.ScrollMode.AUTO
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-
-    name_field = ft.TextField(label="Your Name", width=250, filled=True, fill_color="#4682b4", text_align=ft.TextAlign.CENTER)
-
-    skill_dropdown = ft.Dropdown(
-        label="Skill Needed",
-        width=250,
-        options=[
-            ft.dropdown.Option("Tutoring"),
-            ft.dropdown.Option("Repairs"),
-            ft.dropdown.Option("Cooking"),
-            ft.dropdown.Option("Tech Support"),
-            ft.dropdown.Option("Others: Specify below"),
-        ]
-    )
-
-    other_skill_field = ft.TextField(label="Specify Skill", width=250, filled=True, visible=False)
-
-    availability_dropdown = ft.Dropdown(
-        label="When do you need help?",
-        width=250,
-        options=[
-            ft.dropdown.Option("Morning"),
-            ft.dropdown.Option("Afternoon"),
-            ft.dropdown.Option("Evening"),
-            ft.dropdown.Option("Weekends"),
-        ]
-    )
-
-    location_field = ft.TextField(label="Your Location", width=250, filled=True, fill_color="#FFF", text_align=ft.TextAlign.CENTER)
-
-    def skill_changed(e):
-        other_skill_field.visible = (skill_dropdown.value == "Others: Specify below")
-        page.update()
-
-    skill_dropdown.on_change = skill_changed
-
-    def submit_handler(e):
+    def submit_request(e):
         name = name_field.value.strip()
-        skill = other_skill_field.value.strip() if skill_dropdown.value == "Others: Specify below" else skill_dropdown.value
-        availability = availability_dropdown.value
+        email = email_field.value.strip()
         location = location_field.value.strip()
+        skill = skill_field.value.strip()
+        availability = availability_field.value.strip()
 
-        if not name or not skill or not availability or not location:
-            page.snack_bar = ft.SnackBar(content=ft.Text("Please fill out all fields!"), bgcolor="red")
-            page.snack_bar.open = True
+        if not all([name, email, location, skill, availability]):
+            result_text.value = "❗ Please fill in all fields."
             page.update()
             return
 
-        database.add_request(name, skill, location, availability)
+        # Add to DB with email
+        add_request(name, skill, location, availability, email=email)
 
-        def on_done(_):
-            page.dialog.open = False
-            page.controls.clear()
-            main_menu_main(page)
+        # Try to match with a volunteer
+        match = match_request_to_volunteer(name, skill, location, availability)
 
-        page.dialog = ft.AlertDialog(
-            title=ft.Text("Success"),
-            content=ft.Text("Help request submitted!"),
-            actions=[ft.TextButton("OK", on_click=on_done)],
-        )
-        page.dialog.open = True
+        if match:
+            volunteer_name, distance = match
+            result_text.value = f"✅ Matched with {volunteer_name} ({distance:.1f} km away)"
+        else:
+            result_text.value = "❌ No matching volunteer found at the moment."
+
         page.update()
 
-    def go_back(e):
-        page.controls.clear()
-        main_menu_main(page)
+    # Clear page
+    page.controls.clear()
 
-    form = ft.Column(
+    page.appbar = ft.AppBar(
+        title=ft.Text("Request Help"),
+        bgcolor="#2E7D32"
+    )
+
+    # Input fields
+    name_field = ft.TextField(label="Full Name", width=400)
+    email_field = ft.TextField(label="Email Address", width=400)
+    location_field = ft.TextField(label="Location", width=400)
+    skill_field = ft.TextField(label="Describe the Help You Need", multiline=True, min_lines=2, max_lines=4, width=400)
+    availability_field = ft.TextField(label="Preferred Schedule", width=400)
+    result_text = ft.Text("", color="white", size=16)
+
+    layout = ft.Column(
         [
-            ft.Row([ft.ElevatedButton("← Back", on_click=go_back)], alignment=ft.MainAxisAlignment.START),
-            ft.Text("Request Help", size=28, weight=ft.FontWeight.BOLD, color="white"),
+            ft.Text("Request Help", size=24, weight=ft.FontWeight.BOLD, color="white"),
             name_field,
-            skill_dropdown,
-            other_skill_field,
-            availability_dropdown,
+            email_field,
             location_field,
-            ft.ElevatedButton("Submit Request", on_click=submit_handler),
+            skill_field,
+            availability_field,
+            ft.ElevatedButton(text="Submit", width=150, on_click=submit_request),
+            result_text,
+            ft.TextButton(text="Back", on_click=go_back),
         ],
         spacing=20,
         alignment=ft.MainAxisAlignment.CENTER,
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
     )
 
-    bg = ft.Container(
-        content=form,
+    container = ft.Container(
         expand=True,
-        alignment=ft.alignment.center,
+        content=layout,
         padding=30,
-        bgcolor=ft.LinearGradient(
+        alignment=ft.alignment.center,
+        gradient=ft.LinearGradient(
             begin=ft.alignment.top_center,
             end=ft.alignment.bottom_center,
-            colors=["#87CEEB", "#228B22"]
-        )
+            colors=["#044BA7", "#89ABC7"]  # Cool blue gradient
+        ),
     )
 
-    page.controls.clear()
-    page.add(bg)
+    page.add(container)
     page.update()

@@ -1,126 +1,70 @@
 import flet as ft
-import database
-from main_menu import main as main_menu_main
+from database import add_volunteer
 
 def main(page: ft.Page):
-    page.title = "Volunteer Registration"
-    page.scroll = ft.ScrollMode.AUTO
-    page.theme_mode = ft.ThemeMode.LIGHT
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-
-    # Input Fields
-    full_name_field = ft.TextField(label="Full Name", width=250, filled=True, fill_color="#B0E0E6", text_align=ft.TextAlign.CENTER)
-
-    skills_dropdown = ft.Dropdown(
-        label="Skills",
-        width=250,
-        options=[
-            ft.dropdown.Option("Tutoring"),
-            ft.dropdown.Option("Repairs"),
-            ft.dropdown.Option("Cooking"),
-            ft.dropdown.Option("Tech Support"),
-            ft.dropdown.Option("Others: Specify below"),
-        ],
-    )
-
-    other_skills_field = ft.TextField(label="If Others, specify skill", width=250, filled=True, fill_color="#B0E0E6", text_align=ft.TextAlign.CENTER, visible=False)
-
-    availability_dropdown = ft.Dropdown(
-        label="Availability",
-        width=250,
-        options=[
-            ft.dropdown.Option("Morning"),
-            ft.dropdown.Option("Afternoon"),
-            ft.dropdown.Option("Evening"),
-            ft.dropdown.Option("Weekends"),
-        ],
-    )
-
-    location_field = ft.TextField(label="Location", width=250, filled=True, fill_color="#B0E0E6", text_align=ft.TextAlign.CENTER)
-
-    # Dropdown logic
-    def skills_changed(e):
-        other_skills_field.visible = (skills_dropdown.value == "Others: Specify below")
-        page.update()
-
-    skills_dropdown.on_change = skills_changed
-
     def go_back(e):
-        page.controls.clear()
-        main_menu_main(page)
+        import main_menu
+        main_menu.main(page)
 
-    # ✅ Submit Handler must be inside `main()`
-    def submit_handler(e):
-        full_name = full_name_field.value.strip()
-        skills = other_skills_field.value.strip() if skills_dropdown.value == "Others: Specify below" else skills_dropdown.value
-        availability = availability_dropdown.value
+    def submit_registration(e):
+        name = name_field.value.strip()
+        email = email_field.value.strip()
         location = location_field.value.strip()
+        skills = skills_field.value.strip()
+        availability = availability_field.value.strip()
 
-        if not full_name or not skills or not availability or not location:
-            page.snack_bar = ft.SnackBar(
-                content=ft.Text("Please fill all fields", color="white"),
-                bgcolor="red"
-            )
-            page.snack_bar.open = True
+        if not all([name, email, location, skills, availability]):
+            result_text.value = "❗ Please fill in all fields."
             page.update()
             return
 
-        try:
-            database.add_user(full_name, skills, location, availability)
-        except Exception as ex:
-            page.snack_bar = ft.SnackBar(
-                content=ft.Text(f"Database error: {ex}", color="white"),
-                bgcolor="red"
-            )
-            page.snack_bar.open = True
-            page.update()
-            return
-
-        def on_continue(_):
-            page.dialog.open = False
-            page.controls.clear()
-            main_menu_main(page)
-
-        page.dialog = ft.AlertDialog(
-            title=ft.Text("Success"),
-            content=ft.Text("You are registered successfully!"),
-            actions=[ft.TextButton("Continue", on_click=on_continue)],
-            actions_alignment=ft.MainAxisAlignment.END,
-        )
-        page.dialog.open = True
+        add_volunteer(name, skills, location, availability, email=email)
+        result_text.value = "✅ Registered successfully!"
         page.update()
 
-    # Layout
-    form_content = ft.Column(
+    # Clear page
+    page.controls.clear()
+
+    page.appbar = ft.AppBar(
+        title=ft.Text("Volunteer Registration"),
+        bgcolor="#2E7D32"
+    )
+
+    name_field = ft.TextField(label="Full Name", width=400)
+    email_field = ft.TextField(label="Email Address", width=400)
+    location_field = ft.TextField(label="Location", width=400)
+    skills_field = ft.TextField(label="Skills / Services You Offer", multiline=True, min_lines=2, max_lines=4, width=400)
+    availability_field = ft.TextField(label="Availability", width=400)
+    result_text = ft.Text("", color="white", size=16)
+
+    layout = ft.Column(
         [
-            ft.Row([ft.ElevatedButton("← Back", width=90, on_click=go_back)], alignment=ft.MainAxisAlignment.START),
-            ft.Text("Register as Volunteer", size=28, weight=ft.FontWeight.BOLD, color="white", text_align=ft.TextAlign.CENTER),
-            full_name_field,
-            skills_dropdown,
-            other_skills_field,
-            availability_dropdown,
+            ft.Text("Volunteer Registration", size=24, weight=ft.FontWeight.BOLD, color="white"),
+            name_field,
+            email_field,
             location_field,
-            ft.ElevatedButton("Submit", width=120, on_click=submit_handler),
+            skills_field,
+            availability_field,
+            ft.ElevatedButton(text="Submit", width=150, on_click=submit_registration),
+            result_text,
+            ft.TextButton(text="Back", on_click=go_back),
         ],
         spacing=20,
         alignment=ft.MainAxisAlignment.CENTER,
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
     )
 
-    # Background
-    background = ft.Container(
-        content=form_content,
+    container = ft.Container(
         expand=True,
-        bgcolor=ft.LinearGradient(
+        content=layout,
+        padding=30,
+        alignment=ft.alignment.center,
+        gradient=ft.LinearGradient(
             begin=ft.alignment.top_center,
             end=ft.alignment.bottom_center,
-            colors=["#87CEEB", "#228B22"]
+            colors=["#044b04", "#59A059"]  # Forest green gradient
         ),
-        alignment=ft.alignment.center,
-        padding=30,
     )
 
-    page.controls.clear()
-    page.add(background)
+    page.add(container)
     page.update()
