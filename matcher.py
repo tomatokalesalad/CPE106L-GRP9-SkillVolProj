@@ -1,23 +1,16 @@
-from database import find_match, log_match
+import sqlite3
+from datetime import datetime
+import uuid
 from haversine import haversine
-
-# Dummy coordinates — add more cities as needed
-city_coords = {
-    "Manila": (14.5995, 120.9842),
-    "Quezon City": (14.6760, 121.0437),
-    "Pasay": (14.5378, 121.0014),
-    "Makati": (14.5547, 121.0244),
-}
-
-def get_coordinates(city):
-    return city_coords.get(city)
+from location_utils import get_coordinates_from_address
+from database import find_match, log_match
+from map_viewer import open_match_map  # ✅ NEW: import Google Maps visualization
 
 def match_request_to_volunteer(name, email, skill, location, availability):
-    request_coords = get_coordinates(location)
+    request_coords = get_coordinates_from_address(location)
     if not request_coords:
         return None
 
-    # Get all volunteers who match skill/availability
     volunteers = find_match(skill, location, availability)
 
     best_match = None
@@ -25,7 +18,7 @@ def match_request_to_volunteer(name, email, skill, location, availability):
 
     for volunteer in volunteers:
         volunteer_name, volunteer_email, vol_location, vol_availability = volunteer
-        vol_coords = get_coordinates(vol_location)
+        vol_coords = get_coordinates_from_address(vol_location)
         if not vol_coords:
             continue
 
@@ -35,10 +28,8 @@ def match_request_to_volunteer(name, email, skill, location, availability):
             best_match = volunteer
 
     if best_match:
-        # Destructure best volunteer info
         volunteer_name, volunteer_email, vol_location, vol_availability = best_match
 
-        # Log the match to DB
         log_match(
             request_name=name,
             request_email=email,
@@ -49,6 +40,10 @@ def match_request_to_volunteer(name, email, skill, location, availability):
             availability=availability,
             distance_km=shortest_distance
         )
+
+        # ✅ NEW: Show map of the match
+        volunteer_coords = get_coordinates_from_address(vol_location)
+        open_match_map(request_coords, volunteer_coords)
 
         return volunteer_name, shortest_distance
 

@@ -41,6 +41,22 @@ def init_db():
         )
     """)
 
+    # ✅ Add this missing table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS matches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            request_name TEXT NOT NULL,
+            request_email TEXT,
+            volunteer_name TEXT NOT NULL,
+            volunteer_email TEXT,
+            skill TEXT NOT NULL,
+            location TEXT NOT NULL,
+            availability TEXT NOT NULL,
+            distance_km REAL NOT NULL,
+            timestamp TEXT NOT NULL
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -70,7 +86,7 @@ def find_match(skill, location, availability):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("""
-        SELECT name, skills, location, availability FROM users
+        SELECT name, skills, location, availability, email FROM users
         WHERE skills LIKE ? AND availability = ?
     """, (f"%{skill}%", availability))
     results = c.fetchall()
@@ -98,7 +114,7 @@ def view_match_logs():
     return logs
 
 # ──────────────── MATCHING + LOGGING FUNCTION ────────────────
-def match_request_to_volunteer(requester_name, requested_skill, location, availability):
+def match_request_to_volunteer(requester_name, requested_skill, location, availability, request_email=None):
     candidates = find_match(requested_skill, location, availability)
 
     if not candidates:
@@ -106,24 +122,23 @@ def match_request_to_volunteer(requester_name, requested_skill, location, availa
 
     volunteer = candidates[0]
     volunteer_name = volunteer[0]
+    volunteer_email = volunteer[4]
 
     # Simulated distance (replace with haversine if needed)
     distance_km = 1.0
 
     insert_match_log(requester_name, volunteer_name, requested_skill, distance_km)
+    log_match(requester_name, request_email, volunteer_name, volunteer_email, requested_skill, location, availability, distance_km)
 
     return volunteer_name, distance_km
 
 def log_match(request_name, request_email, volunteer_name, volunteer_email, skill, location, availability, distance_km):
-    conn = sqlite3.connect("volunteer_exchange.db")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
-    c.execute(
-        """
-        INSERT INTO matches (request_name, request_email, volunteer_name, volunteer_email, skill, location, availability, distance_km)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (request_name, request_email, volunteer_name, volunteer_email, skill, location, availability, distance_km)
-    )
+    c.execute("""
+        INSERT INTO matches (request_name, request_email, volunteer_name, volunteer_email, skill, location, availability, distance_km, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (request_name, request_email, volunteer_name, volunteer_email, skill, location, availability, distance_km, timestamp))
     conn.commit()
     conn.close()
-
