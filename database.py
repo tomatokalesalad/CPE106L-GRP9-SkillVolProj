@@ -12,10 +12,12 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            email TEXT,
-            skills TEXT NOT NULL,
-            location TEXT NOT NULL,
-            availability TEXT NOT NULL
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role TEXT,
+            skills TEXT,
+            location TEXT,
+            availability TEXT
         )
     """)
 
@@ -41,7 +43,6 @@ def init_db():
         )
     """)
 
-    # ✅ Add this missing table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS matches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,17 +58,49 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS requesters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL
+        )
+    """)
+
     conn.commit()
     conn.close()
 
 # ──────────────── USER & REQUEST INSERTION ────────────────
-def add_volunteer(name, skills, location, availability, email=None):
+
+def add_volunteer(name, email, password):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("""
-        INSERT INTO users (name, email, skills, location, availability)
-        VALUES (?, ?, ?, ?, ?)
-    """, (name, email, skills, location, availability))
+        INSERT INTO users (name, email, password, role)
+        VALUES (?, ?, ?, ?)
+    """, (name, email, password, "volunteer"))
+    conn.commit()
+    conn.close()
+
+def add_requester(name, email, password):
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+
+    try:
+        c.execute("""
+            INSERT INTO users (name, email, password, role)
+            VALUES (?, ?, ?, ?)
+        """, (name, email, password, "requester"))
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise
+
+    c.execute("SELECT * FROM requesters WHERE email = ?", (email,))
+    if not c.fetchone():
+        c.execute("""
+            INSERT INTO requesters (name, email)
+            VALUES (?, ?)
+        """, (name, email))
+
     conn.commit()
     conn.close()
 
@@ -81,64 +114,82 @@ def add_request(name, skill, location, availability, email=None):
     conn.commit()
     conn.close()
 
-# ──────────────── MATCH FINDING ────────────────
+# ──────────────── LOGIN VALIDATION ────────────────
+
+def volunteer_exists(email):
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE email = ? AND role = 'volunteer'", (email,))
+    exists = c.fetchone() is not None
+    conn.close()
+    return exists
+
+def requester_exists(email):
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE email = ? AND role = 'requester'", (email,))
+    exists = c.fetchone() is not None
+    conn.close()
+    return exists
+
+def verify_login(email, password, role):
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE email = ? AND password = ? AND role = ?", (email, password, role))
+    valid = c.fetchone() is not None
+    conn.close()
+    return valid
+
+def delete_user(email):
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("DELETE FROM users WHERE email = ?", (email,))
+    c.execute("DELETE FROM requesters WHERE email = ?", (email,))
+    conn.commit()
+    conn.close()
+
+def get_requester_by_email(email):
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT name, email, password FROM users WHERE email = ? AND role = 'requester'", (email,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return {"name": row[0], "email": row[1], "password": row[2]}
+    return None
+
+# ──────────────── MATCHING & LOGGING ────────────────
+
 def find_match(skill, location, availability):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("""
-        SELECT name, skills, location, availability, email FROM users
-        WHERE skills LIKE ? AND availability = ?
-    """, (f"%{skill}%", availability))
-    results = c.fetchall()
+        SELECT name, email, skills, location, availability FROM users
+        WHERE role = 'volunteer'
+    """)
+    rows = c.fetchall()
     conn.close()
-    return results
 
-# ──────────────── MATCH LOGGING ────────────────
-def insert_match_log(requester_name, volunteer_name, skill, distance_km):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    matches = []
+    for row in rows:
+        volunteer_name, volunteer_email, skills, v_location, v_availability = row
+        if skill.lower() in (skills or "").lower():
+            matches.append((volunteer_name, volunteer_email, v_location, v_availability))
+    return matches
+
+def log_match(request_name, request_email, volunteer_name, volunteer_email, skill, location, availability, distance_km):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
+    c.execute("""
+        INSERT INTO matches (request_name, request_email, volunteer_name, volunteer_email,
+                             skill, location, availability, distance_km, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (request_name, request_email, volunteer_name, volunteer_email,
+          skill, location, availability, distance_km, datetime.now().isoformat()))
+
     c.execute("""
         INSERT INTO match_logs (requester_name, volunteer_name, skill, distance_km, timestamp)
         VALUES (?, ?, ?, ?, ?)
-    """, (requester_name, volunteer_name, skill, distance_km, timestamp))
-    conn.commit()
-    conn.close()
-
-def view_match_logs():
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute("SELECT * FROM match_logs")
-    logs = c.fetchall()
-    conn.close()
-    return logs
-
-# ──────────────── MATCHING + LOGGING FUNCTION ────────────────
-def match_request_to_volunteer(requester_name, requested_skill, location, availability, request_email=None):
-    candidates = find_match(requested_skill, location, availability)
-
-    if not candidates:
-        return None
-
-    volunteer = candidates[0]
-    volunteer_name = volunteer[0]
-    volunteer_email = volunteer[4]
-
-    # Simulated distance (replace with haversine if needed)
-    distance_km = 1.0
-
-    insert_match_log(requester_name, volunteer_name, requested_skill, distance_km)
-    log_match(requester_name, request_email, volunteer_name, volunteer_email, requested_skill, location, availability, distance_km)
-
-    return volunteer_name, distance_km
-
-def log_match(request_name, request_email, volunteer_name, volunteer_email, skill, location, availability, distance_km):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute("""
-        INSERT INTO matches (request_name, request_email, volunteer_name, volunteer_email, skill, location, availability, distance_km, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (request_name, request_email, volunteer_name, volunteer_email, skill, location, availability, distance_km, timestamp))
+    """, (request_name, volunteer_name, skill, distance_km, datetime.now().isoformat()))
     conn.commit()
     conn.close()

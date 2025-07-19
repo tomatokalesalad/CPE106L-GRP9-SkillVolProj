@@ -1,23 +1,45 @@
 import flet as ft
 import sqlite3
 
-def match_results_ui(page: ft.Page):
+def match_results_ui(page: ft.Page, return_to="admin", email=None):
     page.title = "Match History"
     page.theme_mode = ft.ThemeMode.DARK
 
     def fetch_match_data():
-        conn = sqlite3.connect("skillvolunteer.db")
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT volunteer_name, volunteer_email, requester_name, requester_need, matched_skill, timestamp
-            FROM match_history
-            ORDER BY timestamp DESC
-        """)
-        rows = cursor.fetchall()
-        conn.close()
-        return rows
+        try:
+            conn = sqlite3.connect("skillvolunteer.db")
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT volunteer_name, volunteer_email, request_name, request_email, skill, timestamp
+                FROM matches
+                ORDER BY timestamp DESC
+            """)
+            rows = cursor.fetchall()
+            conn.close()
+            print(f"✅ Retrieved {len(rows)} match entries.")
+            return rows
+        except Exception as e:
+            print("❌ Error fetching match data:", e)
+            return []
 
     matches = fetch_match_data()
+
+    # Build table rows safely even if values are None
+    match_rows = [
+        ft.DataRow(
+            cells=[
+                ft.DataCell(ft.Text(str(row[0] or "—"))),
+                ft.DataCell(ft.Text(str(row[1] or "—"))),
+                ft.DataCell(ft.Text(str(row[2] or "—"))),
+                ft.DataCell(ft.Text(str(row[3] or "—"))),
+                ft.DataCell(ft.Text(str(row[4] or "—"))),
+                ft.DataCell(ft.Text(str(row[5] or "—"))),
+            ]
+        )
+        for row in matches
+    ] if matches else [
+        ft.DataRow(cells=[ft.DataCell(ft.Text("No data")) for _ in range(6)])
+    ]
 
     match_table = ft.DataTable(
         columns=[
@@ -28,23 +50,19 @@ def match_results_ui(page: ft.Page):
             ft.DataColumn(label=ft.Text("Matched Skill")),
             ft.DataColumn(label=ft.Text("Timestamp")),
         ],
-        rows=[
-            ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(row[0])),
-                    ft.DataCell(ft.Text(row[1])),
-                    ft.DataCell(ft.Text(row[2])),
-                    ft.DataCell(ft.Text(row[3])),
-                    ft.DataCell(ft.Text(row[4])),
-                    ft.DataCell(ft.Text(row[5])),
-                ]
-            ) for row in matches
-        ]
+        rows=match_rows
     )
 
     def go_back(e):
-        import admin_dashboard  # or wherever your main admin panel is
-        admin_dashboard.main(page)
+        if return_to == "requester":
+            import requester_dashboard
+            requester_dashboard.main(page, name=email)
+        elif return_to == "volunteer":
+            import volunteer_dashboard
+            volunteer_dashboard.main(page, name=email)
+        else:
+            import admin_dashboard
+            admin_dashboard.main(page)
 
     page.controls.clear()
     page.add(
@@ -55,7 +73,22 @@ def match_results_ui(page: ft.Page):
                 match_table,
                 ft.ElevatedButton("⬅ Back to Dashboard", on_click=go_back)
             ], scroll=ft.ScrollMode.ALWAYS),
-            padding=20
+            padding=20,
+            expand=True,
         )
     )
     page.update()
+
+
+def main(page: ft.Page, return_to="admin", email=None):
+    print("🔁 match_results.main() called with:", return_to, email)
+    if email is None and return_to != "admin":
+        if return_to == "requester":
+            import requester_login
+            requester_login.main(page)
+        elif return_to == "volunteer":
+            import volunteer_login
+            volunteer_login.main(page)
+        return
+
+    match_results_ui(page, return_to=return_to, email=email)

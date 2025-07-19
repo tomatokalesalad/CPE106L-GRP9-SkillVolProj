@@ -3,8 +3,8 @@ from datetime import datetime
 import uuid
 from haversine import haversine
 from location_utils import get_coordinates_from_address
-from database import find_match, log_match
-from map_viewer import open_match_map  # ✅ NEW: import Google Maps visualization
+from database import find_match, log_match  # ✅ Fix: Import from `database.py`
+from map_viewer import open_match_map  # ✅ Google Maps visualization
 
 def match_request_to_volunteer(name, email, skill, location, availability):
     request_coords = get_coordinates_from_address(location)
@@ -41,7 +41,7 @@ def match_request_to_volunteer(name, email, skill, location, availability):
             distance_km=shortest_distance
         )
 
-        # ✅ NEW: Show map of the match
+        # ✅ Show match on the map
         volunteer_coords = get_coordinates_from_address(vol_location)
         open_match_map(request_coords, volunteer_coords)
 

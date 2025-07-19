@@ -5,21 +5,53 @@ def main(page: ft.Page):
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
 
-    def go_to_register(e):
-        import register_form
-        register_form.main(page)
+    def go_to_volunteer_register(e):
+        if page.session.get("user_email"):
+            import register_form
+            page.controls.clear()
+            register_form.main(page)
+            page.update()
+        else:
+            import requester_login
+            page.controls.clear()
+            requester_login.main(page)
+            page.update()
 
-    def go_to_request(e):
-        import request_help
-        request_help.main(page)
+    def go_to_request_form(e):
+        if page.session.get("user_email"):
+            import request_form
+            page.controls.clear()
+            request_form.main(page)
+            page.update()
+        else:
+            import requester_login
+            page.controls.clear()
+            requester_login.main(page)
+            page.update()
+
+    def go_to_requester_login(e):
+        import requester_login
+        page.controls.clear()
+        requester_login.main(page)
+        page.update()
+
+    def go_to_requester_register(e):
+        import requester_register
+        page.controls.clear()
+        requester_register.main(page)
+        page.update()
 
     def go_to_matches(e):
         import match_results
-        match_results.main(page)
+        page.controls.clear()
+        match_results.main(page, return_to="main")
+        page.update()
 
     def go_to_admin_login(e):
         import admin_login
+        page.controls.clear()
         admin_login.main(page)
+        page.update()
 
     layout = ft.Column(
         controls=[
@@ -37,22 +69,22 @@ def main(page: ft.Page):
                 color="white70",
                 text_align=ft.TextAlign.CENTER,
             ),
-            ft.Container(height=40),
-            ft.ElevatedButton(
-                text="Become a Volunteer",
-                width=220,
-                height=50,
-                bgcolor="#546de5",
-                color="white",
-                on_click=go_to_register,
-            ),
+            ft.Container(height=30),
             ft.ElevatedButton(
                 text="Request Help",
                 width=220,
                 height=50,
                 bgcolor="#e66767",
                 color="white",
-                on_click=go_to_request,
+                on_click=go_to_request_form,
+            ),
+            ft.ElevatedButton(
+                text="Become a Volunteer",
+                width=220,
+                height=50,
+                bgcolor="#546de5",
+                color="white",
+                on_click=go_to_volunteer_register,
             ),
             ft.ElevatedButton(
                 text="View Match Results",
@@ -70,10 +102,31 @@ def main(page: ft.Page):
                 color="white",
                 on_click=go_to_admin_login,
             ),
+            ft.Container(height=20),
+            ft.Text("Already a requester?", color="white70"),
+            ft.Row(
+                [
+                    ft.ElevatedButton(
+                        text="Login",
+                        width=120,
+                        bgcolor="#009688",
+                        color="white",
+                        on_click=go_to_requester_login,
+                    ),
+                    ft.ElevatedButton(
+                        text="Sign Up",
+                        width=120,
+                        bgcolor="#00b894",
+                        color="white",
+                        on_click=go_to_requester_register,
+                    ),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
         ],
         alignment=ft.MainAxisAlignment.CENTER,
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        spacing=25,
+        spacing=20,
     )
 
     bg = ft.Container(
@@ -84,10 +137,9 @@ def main(page: ft.Page):
         gradient=ft.LinearGradient(
             begin=ft.alignment.top_center,
             end=ft.alignment.bottom_center,
-            colors=["#574b90", "#f5cd79"], 
+            colors=["#574b90", "#f5cd79"],
         ),
     )
 
     page.controls.clear()
     page.add(bg)
-    page.update()
