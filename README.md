@@ -60,4 +60,11 @@ This project is designed to be runnable in Windows (Oracle VM or bare metal). If
 
 ---
 
+MEMBERS:
+Obongen, Althea Marie G.            
+Santos, Alexxa M.                   
+Zulueta, Pablo Mauricio III M.       
+
+---
+
 Thank you✨
