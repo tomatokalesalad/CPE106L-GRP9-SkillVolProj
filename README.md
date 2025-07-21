@@ -44,7 +44,7 @@ pip install flet pandas matplotlib
 
 ADMIN LOGIN (default credentials):
 Username: admin
-Password: admin123
+Password: 1234
 
 NOTES:
 - The UI uses a dark theme.
@@ -60,5 +60,4 @@ This project is designed to be runnable in Windows (Oracle VM or bare metal). If
 
 ---
 
-Thank you!
-- Tomato ✨
+Thank you✨
