@@ -20,7 +20,7 @@ def main(page: ft.Page):
 
         if requester_exists(email):
             page.session.set("user_email", email)
-            requester_dashboard.main(page, email)  # ✅ FIXED: correct function call
+            requester_dashboard.main(page, email)  
         else:
             status_text.value = "Requester not found. Please sign up first."
             page.update()
