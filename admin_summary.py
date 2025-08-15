@@ -1,22 +1,38 @@
 import flet as ft
 import sqlite3
 
+DB_PATH = "skillvolunteer.db"
+
+def _count(cur, sql, default=0):
+    try:
+        cur.execute(sql)
+        row = cur.fetchone()
+        return int(row[0] if row and row[0] is not None else default)
+    except Exception:
+        return default
+
 def main(page: ft.Page):
-    page.title = "Admin Dashboard"
+    page.title = "Admin Summary"
+    page.scroll = ft.ScrollMode.AUTO
 
-    conn = sqlite3.connect("skillvolunteer.db")
-    cur = conn.cursor()
+    # Pull counts
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+    except Exception:
+        conn = None
+        cur = None
 
-    cur.execute("SELECT COUNT(*) FROM users")
-    num_volunteers = cur.fetchone()[0]
+    num_volunteers = 0
+    num_requests   = 0
+    num_matches    = 0
 
-    cur.execute("SELECT COUNT(*) FROM requests")
-    num_requests = cur.fetchone()[0]
-
-    cur.execute("SELECT COUNT(*) FROM match_logs")
-    num_matches = cur.fetchone()[0]
-
-    conn.close()
+    if cur:
+        # Adjust these table/column names if yours differ
+        num_volunteers = _count(cur, "SELECT COUNT(*) FROM users WHERE lower(role)='volunteer'")
+        num_requests   = _count(cur, "SELECT COUNT(*) FROM requests")
+        num_matches    = _count(cur, "SELECT COUNT(*) FROM match_logs")
+        conn.close()
 
     page.controls.clear()
     page.add(
@@ -27,7 +43,14 @@ def main(page: ft.Page):
                     ft.Text(f"✅ Volunteers: {num_volunteers}", color="white"),
                     ft.Text(f"📩 Requests: {num_requests}", color="white"),
                     ft.Text(f"🔁 Matches: {num_matches}", color="white"),
-                    ft.ElevatedButton("← Back", on_click=lambda _: page.go("/"))
+                    ft.Row(
+                        [
+                            ft.ElevatedButton("← Back to Home", on_click=lambda _: page.go("/")),
+                            ft.ElevatedButton("Go to Dashboard", on_click=lambda _: __import__("admin_dashboard").main(page)),
+                        ],
+                        alignment="center",
+                        spacing=12
+                    )
                 ],
                 spacing=20,
                 alignment=ft.MainAxisAlignment.CENTER
