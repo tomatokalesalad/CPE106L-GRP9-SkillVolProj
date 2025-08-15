@@ -1,49 +1,59 @@
 import flet as ft
 
-# Dummy credentials (you can store securely later)
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "1234"
+# Fallback static credentials
+ADMIN_FALLBACK_USER = "admin"
+ADMIN_FALLBACK_PASS = "1234"
+
+# Try to import database login function if available
+try:
+    from database import verify_login as _verify_login
+except ImportError:
+    _verify_login = None
+
+def _is_valid_admin(username: str, password: str) -> bool:
+    # 1. Fallback direct check
+    if username.strip() == ADMIN_FALLBACK_USER and password.strip() == ADMIN_FALLBACK_PASS:
+        return True
+
+    # 2. If DB login is available, check it
+    if _verify_login:
+        try:
+            user = _verify_login(username.strip(), password.strip())
+            if user and (user.get("role") or "").lower() == "admin":
+                return True
+        except Exception:
+            pass
+
+    return False
 
 def main(page: ft.Page):
-    page.theme_mode = ft.ThemeMode.DARK
+    page.horizontal_alignment = "center"
+    page.vertical_alignment = "center"
     page.title = "Admin Login"
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
 
-    username = ft.TextField(label="Username")
-    password = ft.TextField(label="Password", password=True, can_reveal_password=True)
-    error_text = ft.Text("", color="red")
+    username = ft.TextField(label="Admin Username", width=320)
+    password = ft.TextField(label="Admin Password", width=320, password=True, can_reveal_password=True)
+    status = ft.Text("", color="red")
 
-    def login(e):
-        if username.value == ADMIN_USERNAME and password.value == ADMIN_PASSWORD:
+    def submit(e):
+        if _is_valid_admin(username.value, password.value):
             import admin_dashboard
             admin_dashboard.main(page)
         else:
-            error_text.value = "Invalid credentials"
+            status.value = "Invalid admin credentials."
             page.update()
 
-    page.controls.clear()
-    page.add(
-        ft.Column(
-            [
-                ft.Text("Admin Login", size=30, weight=ft.FontWeight.BOLD),
-                username,
-                password,
-                error_text,
-                ft.ElevatedButton("Login", on_click=login),
-                ft.ElevatedButton(
-                    text="← Back to Main Menu",
-                    width=180,
-                    height=40,
-                    bgcolor="#636e72",
-                    color="white",
-                    on_click=lambda e: __import__('main_menu').main(page),
-                ),
-            ],
-            spacing=20,
-            width=400,
-            alignment=ft.MainAxisAlignment.CENTER
-        )
+    content = ft.Column(
+        [
+            ft.Text("Admin Login", size=24, weight="bold"),
+            username,
+            password,
+            ft.Row([ft.ElevatedButton("Login", on_click=submit)], alignment="center"),
+            ft.Row([ft.TextButton("Back to Home", on_click=lambda e: page.go("/"))], alignment="center"),
+            status
+        ],
+        spacing=12, horizontal_alignment="center", alignment="center"
     )
-
+    page.controls.clear()
+    page.add(ft.Container(content=content, expand=True, alignment=ft.alignment.center))
     page.update()
