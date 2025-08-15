@@ -1,38 +1,32 @@
 import flet as ft
-import main_menu
-import match_results
-import request_form
+from database import get_user_by_email, find_matches_for_user
 
-def main(page: ft.Page, name=None):
-    print("📲 Entered requester_dashboard with name:", name)
-
-    page.title = "Requester Dashboard"
+def main(page: ft.Page):
     page.controls.clear()
+    em = page.session.get("user_email")
+    user = get_user_by_email(em) if em else None
+    name = user["name"] if user else "Requester"
 
-    welcome_msg = f"Welcome, {name}!" if name else "Welcome!"
+    title = ft.Text(f"Requester Dashboard — Hi, {name}!", size=22, weight="bold")
 
-    def go_back(e):
-        main_menu.main(page)
-
-    def view_match_results(e):
-        print("🔁 Redirecting to match_results from requester_dashboard with name:", name)
-        match_results.main(page, return_to="requester", email=name)  # Correct arguments
-
-    def create_new_request(e):
-        request_form.main(page, name=name)
+    # Show matches
+    matches = find_matches_for_user(em)
+    if matches:
+        match_list = ft.Column([
+            ft.Text("📌 Matching Volunteers:", size=18, weight="bold")
+        ] + [
+            ft.Text(f"{m['name']} — {m['email']} — {m['skills']} — {m['availability']} — {m['location']}")
+            for m in matches
+        ])
+    else:
+        match_list = ft.Text("No matching volunteers found at the moment.", color="red")
 
     layout = ft.Column(
-        controls=[
-            ft.Text(welcome_msg, size=28, weight=ft.FontWeight.BOLD),
-            ft.Text("What would you like to do today?", size=20),
-            ft.ElevatedButton("➕ Create New Help Request", on_click=create_new_request),
-            ft.ElevatedButton("📄 View Match Results", on_click=view_match_results),
-            ft.TextButton("← Back to Main Menu", on_click=go_back),
+        [
+            title,
+            match_list
         ],
-        spacing=25,
-        alignment=ft.MainAxisAlignment.CENTER,
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER
+        spacing=18, alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER
     )
-
-    page.add(layout)
+    page.add(ft.Container(content=layout, expand=True, alignment=ft.alignment.center))
     page.update()
