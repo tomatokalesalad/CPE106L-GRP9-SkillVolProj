@@ -1,50 +1,78 @@
-import sqlite3
-from datetime import datetime
-import uuid
-from haversine import haversine
-from location_utils import get_coordinates_from_address
-from database import find_match, log_match  # ✅ Fix: Import from `database.py`
-from map_viewer import open_match_map  # ✅ Google Maps visualization
+from database import (
+    get_all_volunteers,
+    get_help_request_by_email,
+    admin_all_users,
+    add_match
+)
 
-def match_request_to_volunteer(name, email, skill, location, availability):
-    request_coords = get_coordinates_from_address(location)
-    if not request_coords:
-        return None
+# Match requester to volunteer
+def match_request_to_volunteer(requester_email):
+    requester = get_help_request_by_email(requester_email)
+    if not requester:
+        return []
 
-    volunteers = find_match(skill, location, availability)
+    matches = []
+    for volunteer in get_all_volunteers():
+        if (volunteer["skills"] == requester["skills"] or
+            volunteer["skills"] == "Other" or
+            requester["skills"] == "Other") and volunteer["availability"] == requester["availability"]:
+            
+            # Add to match list
+            match_info = {
+                "request_name": requester["name"],
+                "request_email": requester["email"],
+                "volunteer_name": volunteer["name"],
+                "volunteer_email": volunteer["email"],
+                "skill": requester["skills"],
+                "location": volunteer["location"],
+                "availability": volunteer["availability"]
+            }
+            matches.append(match_info)
 
-    best_match = None
-    shortest_distance = float("inf")
+            # Store in DB
+            add_match(
+                requester["name"],
+                requester["email"],
+                volunteer["name"],
+                volunteer["email"],
+                requester["skills"],
+                None
+            )
+    return matches
 
-    for volunteer in volunteers:
-        volunteer_name, volunteer_email, vol_location, vol_availability = volunteer
-        vol_coords = get_coordinates_from_address(vol_location)
-        if not vol_coords:
-            continue
+# Match volunteer to requester
+def match_volunteer_to_request(volunteer_email):
+    # Get volunteer info from main users table
+    users = admin_all_users()
+    volunteer = next((u for u in users if u["email"] == volunteer_email), None)
+    if not volunteer:
+        return []
 
-        distance = haversine(request_coords, vol_coords)
-        if distance < shortest_distance:
-            shortest_distance = distance
-            best_match = volunteer
+    matches = []
+    for user in users:
+        if user["role"] == "Requester":
+            if (user["skills"] == volunteer["skills"] or
+                user["skills"] == "Other" or
+                volunteer["skills"] == "Other") and user["availability"] == volunteer["availability"]:
+                
+                match_info = {
+                    "request_name": user["name"],
+                    "request_email": user["email"],
+                    "volunteer_name": volunteer["name"],
+                    "volunteer_email": volunteer["email"],
+                    "skill": volunteer["skills"],
+                    "location": user["location"],
+                    "availability": user["availability"]
+                }
+                matches.append(match_info)
 
-    if best_match:
-        volunteer_name, volunteer_email, vol_location, vol_availability = best_match
-
-        log_match(
-            request_name=name,
-            request_email=email,
-            volunteer_name=volunteer_name,
-            volunteer_email=volunteer_email,
-            skill=skill,
-            location=location,
-            availability=availability,
-            distance_km=shortest_distance
-        )
-
-        # ✅ Show match on the map
-        volunteer_coords = get_coordinates_from_address(vol_location)
-        open_match_map(request_coords, volunteer_coords)
-
-        return volunteer_name, shortest_distance
-
-    return None
+                # Store in DB
+                add_match(
+                    user["name"],
+                    user["email"],
+                    volunteer["name"],
+                    volunteer["email"],
+                    volunteer["skills"],
+                    None
+                )
+    return matches
