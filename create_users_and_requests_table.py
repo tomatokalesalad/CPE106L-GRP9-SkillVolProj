@@ -17,10 +17,11 @@ def main(page: ft.Page):
         label="Preferred Time",
         width=250,
         options=[
-            ft.dropdown.Option("Morning"),
-            ft.dropdown.Option("Afternoon"),
-            ft.dropdown.Option("Evening"),
+            ft.dropdown.Option("Weekdays"),
             ft.dropdown.Option("Weekends"),
+            ft.dropdown.Option("Evening"),
+            ft.dropdown.Option("Full-time"),
+            ft.dropdown.Option("Flexible"),
         ],
     )
 
