@@ -1,31 +1,33 @@
 import flet as ft
+from database import get_user_by_email, find_matches_for_user
 
-def volunteer_dashboard(page, name):
-    page.theme_mode = ft.ThemeMode.LIGHT
-    page.title = "Volunteer Dashboard"
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
-
-    def view_matches(e):
-        import match_results
-        match_results.main(page)
-
-    def logout(e):
-        import main_menu
-        main_menu.main(page)
-
+def main(page: ft.Page):
     page.controls.clear()
-    page.add(
-        ft.Column(
-            [
-                ft.Text(f"Welcome, {name}!", size=28, weight=ft.FontWeight.BOLD),
-                ft.ElevatedButton("View Match Results", on_click=view_matches, width=200),
-                ft.ElevatedButton("Logout", on_click=logout, width=200, bgcolor="#d63031", color="white")
-            ],
-            spacing=25,
-            alignment=ft.MainAxisAlignment.CENTER,
-            width=300
-        )
-    )
+    em = page.session.get("user_email")
+    user = get_user_by_email(em) if em else None
+    name = user["name"] if user else "Volunteer"
 
+    title = ft.Text(f"Volunteer Dashboard — Hi, {name}!", size=22, weight="bold")
+
+    # Show matches
+    matches = find_matches_for_user(em)
+    if matches:
+        match_list = ft.Column([
+            ft.Text("📌 Matching Requesters:", size=18, weight="bold")
+        ] + [
+            ft.Text(f"{m['name']} — {m['email']} — {m['skills']} — {m['availability']} — {m['location']}")
+            for m in matches
+        ])
+    else:
+        match_list = ft.Text("No matching requesters found at the moment.", color="red")
+
+    layout = ft.Column(
+        [
+            title,
+            ft.ElevatedButton("✏️ Edit Volunteer Profile", on_click=lambda e: page.go("/volunteer_profile")),
+            match_list
+        ],
+        spacing=18, alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER
+    )
+    page.add(ft.Container(content=layout, expand=True, alignment=ft.alignment.center))
     page.update()
