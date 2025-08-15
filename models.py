@@ -3,10 +3,11 @@ from enum import Enum
 
 # ────────────── Step 1: Enum for availability ──────────────
 class Availability(str, Enum):
-    morning = "Morning"
-    afternoon = "Afternoon"
+    weekdays = "Weekdays"
+    weekends = "Weekends"
     evening = "Evening"
-    weekend = "Weekend"
+    fulltime = "Full-time"
+    flexible = "Flexible"
 
 # ────────────── Step 2: Models using the Enum ──────────────
 class User(BaseModel):
