@@ -1,4 +1,3 @@
-# login.py
 import flet as ft
 import sqlite3
 import volunteer_dashboard
